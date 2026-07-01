@@ -1,3 +1,5 @@
+-- Minimal Fusion-style helper used by the app without depending on the full
+-- Fusion package at runtime.
 local fusion={}
 
 local function makeKey(kind,name)

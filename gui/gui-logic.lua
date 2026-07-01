@@ -1,3 +1,6 @@
+-- Reusable UI-kit layer.
+-- The /gui repo decides which pages and platform shell to build; this module only
+-- owns how repeated controls look and behave.
 local guiLogic={}
 
 function guiLogic.new(app)
@@ -17,16 +20,74 @@ function guiLogic.new(app)
 	local api={}
 	local wrapInset=0
 	local emptyTable={}
-	local defaultShape={WindowRadius=0,SectionRadius=0,ControlRadius=0,SliderRadius=0,SliderHeight=26,SliderStyle="original"}
+	local defaultShape={
+		WindowRadius=0,
+		SectionRadius=0,
+		ControlRadius=0,
+		SliderRadius=0,
+		SliderHeight=26,
+		SliderStyle="original",
+	}
+
 	local toggleTickAlphas={0.25,0.5,0.75}
 	local toggleSoftTween=TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
 	local toggleSnapTween=TweenInfo.new(0.22,Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
 	local builtInProfiles={
-		windui={Shape={WindowRadius=12,SectionRadius=10,ControlRadius=8,SliderRadius=10,SliderHeight=24,SliderStyle="windui"}},
-		rayfield={Shape={WindowRadius=6,SectionRadius=5,ControlRadius=4,SliderRadius=4,SliderHeight=26,SliderStyle="rayfield"}},
-		linoria={Shape={WindowRadius=3,SectionRadius=2,ControlRadius=2,SliderRadius=2,SliderHeight=22,SliderStyle="thin"}},
-		obsidian={Shape={WindowRadius=9,SectionRadius=7,ControlRadius=6,SliderRadius=6,SliderHeight=24,SliderStyle="glow"}},
-		visual={Shape={WindowRadius=8,SectionRadius=7,ControlRadius=6,SliderRadius=6,SliderHeight=28,SliderStyle="pill"}},
+		windui={
+			Shape={
+				WindowRadius=12,
+				SectionRadius=10,
+				ControlRadius=8,
+				SliderRadius=10,
+				SliderHeight=24,
+				SliderStyle="windui",
+			},
+		},
+
+		rayfield={
+			Shape={
+				WindowRadius=6,
+				SectionRadius=5,
+				ControlRadius=4,
+				SliderRadius=4,
+				SliderHeight=26,
+				SliderStyle="rayfield",
+			},
+		},
+
+		linoria={
+			Shape={
+				WindowRadius=3,
+				SectionRadius=2,
+				ControlRadius=2,
+				SliderRadius=2,
+				SliderHeight=22,
+				SliderStyle="thin",
+			},
+		},
+
+		obsidian={
+			Shape={
+				WindowRadius=9,
+				SectionRadius=7,
+				ControlRadius=6,
+				SliderRadius=6,
+				SliderHeight=24,
+				SliderStyle="glow",
+			},
+		},
+
+		visual={
+			Shape={
+				WindowRadius=8,
+				SectionRadius=7,
+				ControlRadius=6,
+				SliderRadius=6,
+				SliderHeight=28,
+				SliderStyle="pill",
+			},
+		},
+
 		original={Shape=defaultShape},
 	}
 
@@ -53,31 +114,31 @@ function guiLogic.new(app)
 		return tostring(style.UILib or "original"):lower()
 	end
 
-	local function profile()
+	local function currentProfile()
 		local lib=currentLib()
 
 		if type(getUILibRuntimeStyle)=="function" then
-			local ok,style=pcall(getUILibRuntimeStyle,lib)
-			if ok and type(style)=="table" then
-				return style
+			local ok,runtimeStyle=pcall(getUILibRuntimeStyle,lib)
+			if ok and type(runtimeStyle)=="table" then
+				return runtimeStyle
 			end
 		end
 
 		return builtInProfiles[lib] or builtInProfiles.original
 	end
 
-	local function shape()
-		local style=profile()
+	local function currentShape()
+		local style=currentProfile()
 		return type(style.Shape)=="table" and style.Shape or defaultShape
 	end
 
-	local function components()
-		local style=profile()
+	local function currentComponents()
+		local style=currentProfile()
 		return type(style.Components)=="table" and style.Components or emptyTable
 	end
 
 	local function componentValue(key,fallback)
-		local c=components()
+		local c=currentComponents()
 		if c[key]==nil then
 			return fallback
 		end
@@ -216,7 +277,7 @@ function guiLogic.new(app)
 	api.objectLocalPointer=objectLocalPointer
 
 	local function createSwitch(parent,startState,onChange,width,height,_knobSize,_pad,zIndex)
-		local c=components()
+		local c=currentComponents()
 		local checkbox=tostring(c.ToggleStyle or "switch"):lower()=="checkbox"
 		width=width or componentNumber("ToggleWidth",checkbox and 34 or 58)
 		height=height or componentNumber("ToggleHeight",checkbox and 22 or 22)
@@ -393,7 +454,7 @@ function guiLogic.new(app)
 	end
 
 	local function createHeaderSwitch(parent,startState,onChange,zIndex)
-		local c=components()
+		local c=currentComponents()
 		local width=tonumber(c.HeaderToggleWidth) or 88
 		local height=tonumber(c.HeaderToggleHeight) or 30
 		local railHeight=tonumber(c.HeaderToggleRailHeight) or 22
@@ -601,7 +662,7 @@ function guiLogic.new(app)
 
 	function api.makeSection(parent,order,titleText,subtitleText,options)
 		options=options or {}
-		local c=components()
+		local c=currentComponents()
 		local sectionMode=tostring(c.SectionMode or "card"):lower()
 		local descriptionOnly=options.compact==true or options.headerOnly==true
 		local hasBody=not descriptionOnly
@@ -951,7 +1012,7 @@ function guiLogic.new(app)
 	function api.buildSlider(parent,labelText,minVal,maxVal,startVal,decimals,onChange)
 		labelText=tostring(labelText or "")
 		local hasLabel=labelText~=""
-		local s=shape()
+		local s=currentShape()
 		local sliderHeight=s.SliderHeight or componentNumber("SliderHeight",26)
 		local rowHeight=math.max(componentNumber("SliderRowHeight",38),sliderHeight+10)
 		local valueBoxVisible=componentValue("SliderValueBoxVisible",true)~=false
@@ -1429,7 +1490,7 @@ function guiLogic.new(app)
 	end
 
 	function api.buildToggleRow(parent,labelText,startState,onChange)
-		local c=components()
+		local c=currentComponents()
 		local toggleStyle=tostring(c.ToggleStyle or "switch"):lower()
 		local toggleW=componentNumber("ToggleWidth",48)
 		local toggleH=componentNumber("ToggleHeight",20)

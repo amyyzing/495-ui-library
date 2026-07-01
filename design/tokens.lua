@@ -1,3 +1,5 @@
+-- Shared design-token names and defaults.
+-- Themes fill these tokens; the app consumes the resolved values.
 local designTokens = {}
 
 designTokens.Color = {

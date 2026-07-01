@@ -9,6 +9,8 @@ assert(designTokens, "DesignTokens must load before DesignThemeResolver")
 
 local themeResolver = {}
 
+-- Resolve a theme into a complete value table so component builders can ask for
+-- semantic tokens instead of hardcoding colors in every control.
 local function luminance(color)
 	return 0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B
 end
