@@ -1,6 +1,4 @@
--- Reusable UI-kit layer.
--- The /gui repo decides which pages and platform shell to build; this module only
--- owns how repeated controls look and behave.
+-- SON
 local guiLogic={}
 
 function guiLogic.new(app)
