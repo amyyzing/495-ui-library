@@ -30,13 +30,13 @@ local function resolveText(values)
 	local lum = luminance(surface)
 
 	if lum > 0.72 then
-		values[designTokens.Color.Text.Primary] = Color3.fromRGB(12, 12, 12)
-		values[designTokens.Color.Text.Muted] = Color3.fromRGB(76, 76, 76)
-		values[designTokens.Color.Text.Inverse] = Color3.fromRGB(245, 245, 245)
+		values[designTokens.Color.Text.Primary] = values[designTokens.Color.Text.Primary] or Color3.fromRGB(12, 12, 12)
+		values[designTokens.Color.Text.Muted] = values[designTokens.Color.Text.Muted] or Color3.fromRGB(76, 76, 76)
+		values[designTokens.Color.Text.Inverse] = values[designTokens.Color.Text.Inverse] or Color3.fromRGB(245, 245, 245)
 	else
-		values[designTokens.Color.Text.Primary] = Color3.fromRGB(245, 245, 245)
-		values[designTokens.Color.Text.Muted] = Color3.fromRGB(184, 184, 184)
-		values[designTokens.Color.Text.Inverse] = Color3.fromRGB(12, 12, 12)
+		values[designTokens.Color.Text.Primary] = values[designTokens.Color.Text.Primary] or Color3.fromRGB(245, 245, 245)
+		values[designTokens.Color.Text.Muted] = values[designTokens.Color.Text.Muted] or Color3.fromRGB(184, 184, 184)
+		values[designTokens.Color.Text.Inverse] = values[designTokens.Color.Text.Inverse] or Color3.fromRGB(12, 12, 12)
 	end
 
 	values[designTokens.Color.Text.Danger] = values[designTokens.Color.Text.Danger] or Color3.fromRGB(254, 94, 86)

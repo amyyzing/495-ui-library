@@ -13,13 +13,19 @@ designTokens.Color = {
 
 	Surface = {
 		Window = "color.surface.window",
+		Topbar = "color.surface.topbar",
 		Panel = "color.surface.panel",
+		Card = "color.surface.card",
 		Section = "color.surface.section",
 		Control = "color.surface.control",
+		Button = "color.surface.button",
+		Input = "color.surface.input",
+		SliderTrack = "color.surface.sliderTrack",
 	},
 
 	Accent = {
 		Primary = "color.accent.primary",
+		Secondary = "color.accent.secondary",
 		Hover = "color.accent.hover",
 		Pressed = "color.accent.pressed",
 	},

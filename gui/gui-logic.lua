@@ -16,7 +16,7 @@ function guiLogic.new(app)
 	local getUILibRuntimeStyle=app.getUILibRuntimeStyle
 
 	local api={}
-	local wrapInset=0
+	local wrapInset=1
 	local emptyTable={}
 	local defaultShape={
 		WindowRadius=0,
@@ -248,27 +248,34 @@ function guiLogic.new(app)
 		return dx*dx+dy*dy
 	end
 
-	local function objectLocalPointer(object,input)
+	local function pointerOffset(object,input)
 		local point=pointerPosition(input)
 		local inset=guiInset()
 		local pos=object.AbsolutePosition
 		local size=object.AbsoluteSize
-		local best=point
+		local bestOffset=Vector2.new(0,0)
 		local bestDistance=distanceToRect(point,pos,size)
 		local candidates={
-			point-inset,
-			point+inset
+			-inset,
+			inset
 		}
 
-		for _,candidate in ipairs(candidates) do
+		for _,offset in ipairs(candidates) do
+			local candidate=point+offset
 			local candidateDistance=distanceToRect(candidate,pos,size)
 			if candidateDistance<bestDistance then
-				best=candidate
+				bestOffset=offset
 				bestDistance=candidateDistance
 			end
 		end
+		return bestOffset
+	end
 
-		return best.X-pos.X,best.Y-pos.Y,math.max(size.X,1),math.max(size.Y,1)
+	local function objectLocalPointer(object,input,offset)
+		local point=pointerPosition(input)+(offset or pointerOffset(object,input))
+		local pos=object.AbsolutePosition
+		local size=object.AbsoluteSize
+		return math.clamp(point.X-pos.X,0,size.X),math.clamp(point.Y-pos.Y,0,size.Y),math.max(size.X,1),math.max(size.Y,1)
 	end
 
 	api.pointerPosition=pointerPosition
@@ -283,7 +290,7 @@ function guiLogic.new(app)
 
 		local onRole=tostring(c.ToggleOnRole or "SLIDER_FILL")
 		local accent=themeRoleColor(onRole,themeColor("SLIDER_FILL",colors.green or Color3.fromRGB(32,202,106)))
-		local input=themeColor("SLIDER_BG",themeColor("INPUT",colors.panel or Color3.fromRGB(18,18,24)))
+		local input=themeColor("MUTED",colors.muted or Color3.fromRGB(145,145,155))
 		local muted=themeColor("MUTED",colors.muted or Color3.fromRGB(145,145,155))
 		local tickHeight=math.max(6,height-10)
 		local state=startState and true or false
@@ -300,10 +307,11 @@ function guiLogic.new(app)
 		local wrap=make("Frame",{
 			Size=UDim2.fromOffset(width,height),
 			BackgroundColor3=input,
+			BackgroundTransparency=componentNumber("UnfilledTransparency",0.70),
 			BorderSizePixel=0,
 			ClipsDescendants=true,
 			ZIndex=zIndex,
-			ThemeRole="SLIDER_BG",
+			ThemeRole=tostring(c.UnfilledRole or "MUTED"),
 			CornerRole="Control",
 		},parent)
 		addCorner(wrap,"Control")
@@ -385,14 +393,15 @@ function guiLogic.new(app)
 			cancelTweens()
 
 			local currentAccent=themeRoleColor(onRole,themeColor("SLIDER_FILL",colors.green or Color3.fromRGB(32,202,106)))
-			local currentBg=themeColor("SLIDER_BG",themeColor("INPUT",colors.panel or Color3.fromRGB(18,18,24)))
+			local unfilledRole=tostring(c.UnfilledRole or "MUTED")
+			local currentBg=themeColor(unfilledRole,colors.muted or Color3.fromRGB(145,145,155))
 			local currentMuted=themeColor("MUTED",colors.muted or Color3.fromRGB(145,145,155))
 			local onTextColor=readableOn(currentAccent)
 			local fillSize=state and UDim2.new(1,0,1,0) or UDim2.new(0,0,1,0)
 			local fillTransparency=0
 			local bgColor=currentBg
 
-			wrap:SetAttribute("ThemeRole","SLIDER_BG")
+			wrap:SetAttribute("ThemeRole",unfilledRole)
 
 			if not animate then
 				wrap.BackgroundColor3=bgColor
@@ -570,9 +579,12 @@ function guiLogic.new(app)
 		local padX=componentNumber("TextBoxPaddingX",4)
 		local parent=box.Parent
 		local wrap=Instance.new("Frame")
+		local unfilledRole=tostring(componentValue("UnfilledRole","MUTED"))
+		local unfilledColor=themeColor(unfilledRole,colors.muted)
 
 		wrap.Name=box.Name~="" and (box.Name.."_Wrap") or "TextBoxWrap"
-		wrap.BackgroundColor3=bgColor or colors.panel
+		wrap.BackgroundColor3=bgColor or unfilledColor
+		wrap.BackgroundTransparency=componentNumber("UnfilledTransparency",0.70)
 		wrap.BorderSizePixel=0
 		wrap.ClipsDescendants=false
 		wrap.Active=true
@@ -582,7 +594,7 @@ function guiLogic.new(app)
 		wrap.Visible=box.Visible
 		wrap.ZIndex=math.max((box.ZIndex or 2)-1,1)
 		wrap.Parent=parent
-		markThemeRole(wrap,wrap.BackgroundColor3)
+		wrap:SetAttribute("ThemeRole",unfilledRole)
 		addCorner(wrap,"Control")
 
 		local strokeTransparency=componentNumber("ControlStrokeTransparency",0.78)
@@ -665,12 +677,22 @@ function guiLogic.new(app)
 		local descriptionOnly=options.compact==true or options.headerOnly==true
 		local hasBody=not descriptionOnly
 		local canCollapse=hasBody and options.collapsible~=false and options.Collapsible~=false
+		local sectionStrokeEnabled=options.stroke~=false
+		local ancestor=parent
+		while sectionStrokeEnabled and ancestor do
+			if ancestor:GetAttribute("NoSectionStroke")==true then
+				sectionStrokeEnabled=false
+			end
+			ancestor=ancestor.Parent
+		end
 		local sec=make("Frame",{BackgroundColor3=themeColor("SECTION",colors.card),BackgroundTransparency=componentNumber("SectionBackgroundTransparency",0),BorderSizePixel=0,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,ClipsDescendants=true,ZIndex=4,LayoutOrder=order,ThemeRole="SECTION",CornerRole="Section"},parent)
 
 		addCorner(sec,"Section")
-		local sectionStrokeTransparency=componentNumber("SectionStrokeTransparency",0.84)
-		local sectionStroke=make("UIStroke",{Color=colors.stroke,Thickness=1,Transparency=sectionStrokeTransparency},sec)
-		sectionStroke:SetAttribute("BaseStrokeTransparency",sectionStrokeTransparency)
+		if sectionStrokeEnabled then
+			local sectionStrokeTransparency=componentNumber("SectionStrokeTransparency",0.84)
+			local sectionStroke=make("UIStroke",{Color=colors.stroke,Thickness=1,Transparency=sectionStrokeTransparency},sec)
+			sectionStroke:SetAttribute("BaseStrokeTransparency",sectionStrokeTransparency)
+		end
 		make("UIPadding",{PaddingTop=UDim.new(0,componentNumber("SectionPaddingY",10)),PaddingLeft=UDim.new(0,componentNumber("SectionPaddingX",12)),PaddingRight=UDim.new(0,componentNumber("SectionPaddingX",12)),PaddingBottom=UDim.new(0,componentNumber("SectionPaddingY",10))},sec)
 		make("UIListLayout",{Padding=UDim.new(0,componentNumber("SectionGap",6)),SortOrder=Enum.SortOrder.LayoutOrder},sec)
 
@@ -974,9 +996,10 @@ function guiLogic.new(app)
 	end
 
 	function api.makeBox(parent,w,textValue,placeholder)
-		local b=make("TextBox",{Size=UDim2.fromOffset(w,componentNumber("TextBoxHeight",28)),BackgroundColor3=themeColor("INPUT",colors.panel),BorderSizePixel=0,ClearTextOnFocus=false,Text=textValue,PlaceholderText=placeholder or "",Font=componentFont("TextFont",Enum.Font.Gotham),TextSize=componentNumber("InputTextSize",13),TextColor3=colors.text,PlaceholderColor3=colors.muted,ZIndex=6,ThemeRole="INPUT"},parent)
-		local wrap,stroke=api.wrapTextBox(b,themeColor("INPUT",colors.panel),2)
-		wrap:SetAttribute("ThemeRole","INPUT")
+		local unfilledRole=tostring(componentValue("UnfilledRole","MUTED"))
+		local unfilledColor=themeColor(unfilledRole,colors.muted)
+		local b=make("TextBox",{Size=UDim2.fromOffset(w,componentNumber("TextBoxHeight",28)),BackgroundColor3=unfilledColor,BorderSizePixel=0,ClearTextOnFocus=false,Text=textValue,PlaceholderText=placeholder or "",Font=componentFont("TextFont",Enum.Font.Gotham),TextSize=componentNumber("InputTextSize",13),TextColor3=colors.text,PlaceholderColor3=colors.muted,ZIndex=6,ThemeRole=unfilledRole},parent)
+		local wrap,stroke=api.wrapTextBox(b,unfilledColor,2)
 		local boxConnections={}
 		local function connectBox(signal,fn)
 			local connection=signal:Connect(fn)
@@ -993,12 +1016,12 @@ function guiLogic.new(app)
 		end
 
 		connectBox(b.Focused,function()
-			wrap.BackgroundColor3=themeColor("INPUT",colors.panel)
+			wrap.BackgroundColor3=themeColor(unfilledRole,colors.muted)
 			stroke.Thickness=1
 		end)
 
 		connectBox(b.FocusLost,function()
-			wrap.BackgroundColor3=themeColor("INPUT",colors.panel)
+			wrap.BackgroundColor3=themeColor(unfilledRole,colors.muted)
 			stroke.Thickness=1
 		end)
 
@@ -1051,14 +1074,14 @@ function guiLogic.new(app)
 
 		local containerRole=tostring(componentValue("SliderContainerRole","SECTION"))
 		local containerCorner=tostring(componentValue("SliderContainerCornerRole",containerRole=="BUTTON" and "Control" or "Section"))
-		local trackRole=tostring(componentValue("SliderTrackRole","INPUT"))
-		local valueRole=tostring(componentValue("SliderValueBoxRole","INPUT"))
+		local trackRole=tostring(componentValue("SliderTrackRole",componentValue("UnfilledRole","MUTED")))
+		local valueRole=tostring(componentValue("SliderValueBoxRole",componentValue("UnfilledRole","MUTED")))
 		local sliderTweenInfo=TweenInfo.new(componentNumber("SliderTweenTime",0.14),Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
 		local sliderGlowInfo=TweenInfo.new(componentNumber("SliderGlowTweenTime",0.16),Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
 		local sliderGlowIdleTransparency=componentNumber("SliderGlowIdleTransparency",0.84)
 		local sliderGlowActiveTransparency=componentNumber("SliderGlowActiveTransparency",0.52)
 		local sliderFillTransparency=componentNumber("SliderFillTransparency",0)
-		local sliderTrackTransparency=componentNumber("SliderTrackTransparency",0.04)
+		local sliderTrackTransparency=componentNumber("SliderTrackTransparency",componentNumber("UnfilledTransparency",0.70))
 		local container=make("Frame",{BackgroundColor3=themeColor(containerRole,themeColor("SECTION",colors.card)),BackgroundTransparency=componentNumber("SliderContainerTransparency",1),BorderSizePixel=0,Size=UDim2.new(1,0,0,rowHeight),ZIndex=5,ThemeRole=containerRole,CornerRole=containerCorner},parent)
 		addCorner(container,containerCorner)
 		make("TextLabel",{BackgroundTransparency=1,Position=labelPosition,Size=labelSize,Text=labelText,Font=componentFont("ControlFont",s.SliderStyle=="thin" and Enum.Font.Code or Enum.Font.GothamMedium),TextSize=componentNumber("SliderLabelSize",s.SliderStyle=="thin" and 11 or 12),TextColor3=colors.text,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=6,Selectable=false,Visible=hasLabel},container)
@@ -1081,13 +1104,14 @@ function guiLogic.new(app)
 
 		local hit=make("TextButton",{BackgroundTransparency=1,Text="",Size=UDim2.new(1,0,1,0),ZIndex=12,AutoButtonColor=false,Selectable=true},track)
 		local valueBoxHeight=componentNumber("SliderValueBoxHeight",math.max(componentNumber("TextBoxHeight",24),sliderHeight))
-		local valueBox=make("TextBox",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-rightPadding,valueBoxYScale,valueBoxYOffset),Size=UDim2.fromOffset(math.max(1,valueBoxWidth),valueBoxHeight),BackgroundColor3=themeColor(valueRole,colors.panel),BackgroundTransparency=componentNumber("SliderValueBoxTransparency",0),BorderSizePixel=0,ClearTextOnFocus=false,Text=fmtNumber(startVal,decimals),Font=componentFont("ControlFont",Enum.Font.GothamMedium),TextSize=componentNumber("SliderValueTextSize",12),TextColor3=colors.text,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=6,ThemeRole=valueRole,CornerRole="Control",Selectable=true},container)
+		local valueBox=make("TextBox",{AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-rightPadding,valueBoxYScale,valueBoxYOffset),Size=UDim2.fromOffset(math.max(1,valueBoxWidth),valueBoxHeight),BackgroundColor3=themeColor(valueRole,colors.panel),BackgroundTransparency=componentNumber("SliderValueBoxTransparency",sliderTrackTransparency),BorderSizePixel=0,ClearTextOnFocus=false,Text=fmtNumber(startVal,decimals),Font=componentFont("ControlFont",Enum.Font.GothamMedium),TextSize=componentNumber("SliderValueTextSize",12),TextColor3=colors.text,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=6,ThemeRole=valueRole,CornerRole="Control",Selectable=true},container)
 		valueBox.Visible=valueBoxVisible
 		addCorner(valueBox,"Control")
 		local value=startVal
 		local valueState=makeFusionValue(value)
 		local dragging=false
 		local dragInputType=nil
+		local dragOffset=nil
 		local sliderDestroyed=false
 		local fillTween=nil
 		local fillGlowTween=nil
@@ -1171,7 +1195,7 @@ function guiLogic.new(app)
 		end
 
 		local function valueFromInput(input)
-			local x,_,w=objectLocalPointer(track,input)
+			local x,_,w=objectLocalPointer(track,input,dragOffset)
 			return valueFromPercent(x/w)
 		end
 
@@ -1215,6 +1239,7 @@ function guiLogic.new(app)
 			if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
 				dragging=true
 				dragInputType=i.UserInputType
+				dragOffset=pointerOffset(track,i)
 				valueBox:ReleaseFocus()
 				setValue(valueFromInput(i),true)
 			end
@@ -1250,6 +1275,7 @@ function guiLogic.new(app)
 			if i.UserInputType==dragInputType or i.UserInputType==Enum.UserInputType.MouseButton1 then
 				dragging=false
 				dragInputType=nil
+				dragOffset=nil
 			end
 		end)
 
@@ -1261,6 +1287,7 @@ function guiLogic.new(app)
 			sliderDestroyed=true
 			dragging=false
 			dragInputType=nil
+			dragOffset=nil
 			cancelSliderTweens()
 			destroyFusionValue(valueState)
 			for _,connection in ipairs(connections) do
