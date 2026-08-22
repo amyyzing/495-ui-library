@@ -52,8 +52,8 @@ local components={
 	ControlStrokeTransparency=1,
 	UnfilledRole="MUTED",
 	UnfilledTransparency=0.70,
-	ButtonHoverTransparency=1,
-	ButtonActiveTransparency=1,
+	ButtonHoverTransparency=0,
+	ButtonActiveTransparency=0,
 }
 
 local function copy(source)

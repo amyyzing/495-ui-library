@@ -622,8 +622,8 @@ function guiLogic.new(app)
 		local state={
 			surface=surface,
 			idleTransparency=tonumber(options.idleTransparency) or componentNumber("UnfilledTransparency",0.70),
-			hoverTransparency=tonumber(options.hoverTransparency) or componentNumber("ButtonHoverTransparency",1),
-			activeTransparency=tonumber(options.activeTransparency) or componentNumber("ButtonActiveTransparency",1),
+			hoverTransparency=tonumber(options.hoverTransparency) or componentNumber("ButtonHoverTransparency",0),
+			activeTransparency=tonumber(options.activeTransparency) or componentNumber("ButtonActiveTransparency",0),
 			hovered=false,
 			pressed=false,
 			active=false,
