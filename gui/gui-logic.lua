@@ -12,7 +12,7 @@ function guiLogic.new(app)
 	local fmtNumber=app.fmtNumber
 	local boxWrappers=app.boxWrappers or setmetatable({}, {__mode="k"})
 	local buttonWrappers=app.buttonWrappers or setmetatable({}, {__mode="k"})
-	local markThemeRole=app.markThemeRole or function() end
+	local buttonStates=app.buttonStates or setmetatable({}, {__mode="k"})
 	local getUILibRuntimeStyle=app.getUILibRuntimeStyle
 
 	local api={}
@@ -190,13 +190,6 @@ function guiLogic.new(app)
 		end
 
 		return Color3.fromRGB(22,22,22)
-	end
-
-	local function hoverColor(base,amount)
-		base=base or colors.button or colors.bg
-		amount=tonumber(amount) or 0.08
-		local toward=luminance(base)<0.55 and Color3.new(1,1,1) or Color3.new(0,0,0)
-		return base:Lerp(toward,amount)
 	end
 
 	local function pointerPosition(input)
@@ -620,12 +613,100 @@ function guiLogic.new(app)
 		if position then entry.wrap.Position=insetPosition(position) end
 	end
 
-	function api.wrapTextButton(button,bgColor,strokeThickness)
+	function api.bindButtonState(button,surface,options)
+		options=options or {}
+		surface=surface or button
+		local existing=buttonStates[button]
+		if existing then return existing end
+
+		local state={
+			surface=surface,
+			idleTransparency=tonumber(options.idleTransparency) or componentNumber("UnfilledTransparency",0.70),
+			hoverTransparency=tonumber(options.hoverTransparency) or componentNumber("ButtonHoverTransparency",1),
+			activeTransparency=tonumber(options.activeTransparency) or componentNumber("ButtonActiveTransparency",1),
+			hovered=false,
+			pressed=false,
+			active=false,
+		}
+		local function isPressInput(input)
+			return input.UserInputType==Enum.UserInputType.MouseButton1
+				or input.UserInputType==Enum.UserInputType.Touch
+				or input.KeyCode==Enum.KeyCode.ButtonA
+				or input.KeyCode==Enum.KeyCode.Return
+				or input.KeyCode==Enum.KeyCode.Space
+		end
+
+		local function paint()
+			if not(state.surface and state.surface.Parent) then return end
+			if state.active or state.pressed then
+				state.surface.BackgroundTransparency=state.activeTransparency
+			elseif state.hovered then
+				state.surface.BackgroundTransparency=state.hoverTransparency
+			else
+				state.surface.BackgroundTransparency=state.idleTransparency
+			end
+		end
+
+		function state.setActive(value)
+			state.active=value==true
+			paint()
+		end
+
+		button.MouseEnter:Connect(function()
+			state.hovered=true
+			paint()
+		end)
+		button.MouseLeave:Connect(function()
+			state.hovered=false
+			state.pressed=false
+			paint()
+		end)
+		button.SelectionGained:Connect(function()
+			state.hovered=true
+			paint()
+		end)
+		button.SelectionLost:Connect(function()
+			state.hovered=false
+			state.pressed=false
+			paint()
+		end)
+		button.InputBegan:Connect(function(input)
+			if isPressInput(input) then
+				state.pressed=true
+				paint()
+			end
+		end)
+		button.InputEnded:Connect(function(input)
+			if isPressInput(input) then
+				state.pressed=false
+				if input.UserInputType==Enum.UserInputType.Touch then
+					state.hovered=false
+				end
+				paint()
+			end
+		end)
+
+		buttonStates[button]=state
+		paint()
+		return state
+	end
+
+	function api.setButtonActive(button,value)
+		local state=buttonStates[button]
+		if not state then return false end
+		state.setActive(value)
+		return true
+	end
+
+	function api.wrapTextButton(button,bgColor,strokeThickness,options)
+		options=options or {}
 		local parent=button.Parent
 		local wrap=Instance.new("Frame")
+		local role=options.themeRole or componentValue("UnfilledRole","MUTED")
 
 		wrap.Name=button.Name~="" and (button.Name.."_Wrap") or "ButtonWrap"
-		wrap.BackgroundColor3=bgColor or colors.bg
+		wrap.BackgroundColor3=bgColor or themeColor(role,colors.muted or colors.bg)
+		wrap.BackgroundTransparency=tonumber(options.idleTransparency) or componentNumber("UnfilledTransparency",0.70)
 		wrap.BorderSizePixel=0
 		wrap.ClipsDescendants=false
 		wrap.Active=true
@@ -635,7 +716,7 @@ function guiLogic.new(app)
 		wrap.Visible=button.Visible
 		wrap.ZIndex=math.max((button.ZIndex or 2)-1,1)
 		wrap.Parent=parent
-		markThemeRole(wrap,wrap.BackgroundColor3)
+		wrap:SetAttribute("ThemeRole",role)
 		addCorner(wrap,"Control")
 
 		local strokeTransparency=componentNumber("ControlStrokeTransparency",0.78)
@@ -650,7 +731,8 @@ function guiLogic.new(app)
 		button.AnchorPoint=Vector2.new(0,0)
 		button.ZIndex=wrap.ZIndex+1
 
-		buttonWrappers[button]={wrap=wrap,stroke=stroke}
+		local state=api.bindButtonState(button,wrap,options)
+		buttonWrappers[button]={wrap=wrap,stroke=stroke,state=state}
 		return wrap,stroke
 	end
 
@@ -777,34 +859,16 @@ function guiLogic.new(app)
 
 		if headerButtonOptions then
 			local customBg=headerButtonOptions.backgroundColor or headerButtonOptions.BackgroundColor3
-			local explicitHoverBg=headerButtonOptions.hoverBackgroundColor or headerButtonOptions.HoverBackgroundColor3
+			local buttonRole=headerButtonOptions.themeRole or headerButtonOptions.ThemeRole or (headerButtonOptions.danger and "RED" or "MUTED")
 			local function headerButtonBg()
-				return customBg or (headerButtonOptions.danger and colors.red) or themeColor("BUTTON",colors.bg)
-			end
-			local function headerButtonHoverBg()
-				return explicitHoverBg or hoverColor(headerButtonBg(),headerButtonOptions.danger and 0.18 or 0.08)
+				return customBg or themeColor(buttonRole,headerButtonOptions.danger and colors.red or colors.muted)
 			end
 			local normalBg=headerButtonBg()
 			local textColor=headerButtonOptions.textColor or headerButtonOptions.TextColor3 or (headerButtonOptions.danger and Color3.fromRGB(0,0,0)) or colors.text
 			local headerButtonHeight=componentNumber("HeaderButtonHeight",22)
 			local button=make("TextButton",{Size=UDim2.fromOffset(headerButtonWidth,headerButtonHeight),Position=UDim2.new(1,-headerRightOffset-headerButtonWidth,0.5,-headerButtonHeight/2),BackgroundColor3=normalBg,BorderSizePixel=0,Text=headerButtonOptions.text or headerButtonOptions.Text or "ACTION",Font=componentFont("ControlFont",Enum.Font.GothamMedium),TextSize=11,TextColor3=textColor,SkipTextRole=headerButtonOptions.danger or headerButtonOptions.textColor~=nil or headerButtonOptions.TextColor3~=nil,AutoButtonColor=false,Selectable=true,ZIndex=6},header)
-			local buttonWrap=api.wrapTextButton(button,normalBg,2)
+			local buttonWrap=api.wrapTextButton(button,normalBg,2,{themeRole=buttonRole})
 			buttonWrap.BackgroundColor3=normalBg
-			if headerButtonOptions.themeRole or headerButtonOptions.ThemeRole then
-				buttonWrap:SetAttribute("ThemeRole",headerButtonOptions.themeRole or headerButtonOptions.ThemeRole)
-			elseif headerButtonOptions.danger then
-				buttonWrap:SetAttribute("ThemeRole","RED")
-			elseif not customBg then
-				buttonWrap:SetAttribute("ThemeRole","BUTTON")
-			end
-
-			connectSection(button.MouseEnter,function()
-				buttonWrap.BackgroundColor3=headerButtonHoverBg()
-			end)
-
-			connectSection(button.MouseLeave,function()
-				buttonWrap.BackgroundColor3=headerButtonBg()
-			end)
 
 			connectSection(button.Activated,function()
 				local fn=headerButtonOptions.onClick or headerButtonOptions.OnClick
